@@ -1,0 +1,28 @@
+#pragma once
+
+#include <cstddef>
+#include <optional>
+
+#include <xtensor/xtensor.hpp>
+
+#include "ecole/default.hpp"
+#include "ecole/dynamics/parts.hpp"
+#include "ecole/export.hpp"
+
+namespace ecole::dynamics {
+
+class ECOLE_EXPORT NodeselDynamics : public DefaultSetDynamicsRandomState {
+public:
+	// the node to focus on and the allowed nodes (node ids)
+	using Action = Defaultable<std::size_t>;
+	using ActionSet = std::optional<xt::xtensor<std::size_t, 1>>;
+
+	using DefaultSetDynamicsRandomState::set_dynamics_random_state;
+
+	ECOLE_EXPORT auto reset_dynamics(scip::Model& model) const -> std::tuple<bool, ActionSet>;
+
+	ECOLE_EXPORT auto step_dynamics(scip::Model& model, Action maybe_node_idx) const -> std::tuple<bool, ActionSet>;
+
+};
+
+}  // namespace ecole::dynamics

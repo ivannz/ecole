@@ -6,6 +6,7 @@
 
 #include "ecole/dynamics/branching.hpp"
 #include "ecole/dynamics/configuring.hpp"
+#include "ecole/dynamics/nodesel.hpp"
 #include "ecole/dynamics/primal-search.hpp"
 #include "ecole/scip/model.hpp"
 
@@ -301,6 +302,14 @@ void bind_submodule(pybind11::module_ const& m) {
 						depth_stop:
 							Tree depth after which the primal search stops being called (``HEUR_MAXDEPTH`` in SCIP).
 				)");
+	}
+
+	{
+		dynamics_class<NodeselDynamics>{m, "NodeselDynamics", R"()"}
+			.def_reset_dynamics(R"()")
+			.def_step_dynamics(R"()")
+			.def_set_dynamics_random_state(R"()")
+			.def(py::init<bool>(), py::arg("pseudo_candidates") = false, R"()");
 	}
 }
 

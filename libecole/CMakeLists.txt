@@ -39,6 +39,7 @@ add_library(
 	src/dynamics/branching.cpp
 	src/dynamics/configuring.cpp
 	src/dynamics/primal-search.cpp
+	src/dynamics/nodesel.cpp
 )
 
 add_library(Ecole::ecole-lib ALIAS ecole-lib)

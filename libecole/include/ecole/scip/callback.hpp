@@ -15,7 +15,7 @@
 namespace ecole::scip::callback {
 
 /** Type of rverse callback available. */
-enum struct Type { Branchrule, Heuristic };
+enum struct Type { Branchrule, Heuristic, Nodesel };
 
 /** Return the name used for the reverse callback. */
 constexpr auto name(Type type) {
@@ -24,6 +24,8 @@ constexpr auto name(Type type) {
 		return "ecole::scip::StopLocation::Branchrule";
 	case Type::Heuristic:
 		return "ecole::scip::StopLocation::Heuristic";
+	case Type::Nodesel:
+		return "ecole::scip::StopLocation::Nodesel";
 	default:
 		utility::unreachable();
 	}
@@ -56,7 +58,15 @@ template <> struct Constructor<Type::Heuristic> {
 };
 using HeuristicConstructor = Constructor<Type::Heuristic>;
 
-using DynamicConstructor = std::variant<Constructor<Type::Branchrule>, Constructor<Type::Heuristic>>;
+/** Parameter passed to create a reverse node selector. */
+template <> struct Constructor<Type::Nodesel> {
+	int stdpriority = priority_max;
+	int memsavepriority = priority_max;
+};
+using NodeselConstructor = Constructor<Type::Nodesel>;
+
+using DynamicConstructor =
+	std::variant<Constructor<Type::Branchrule>, Constructor<Type::Heuristic>, Constructor<Type::Nodesel>>;
 
 /** Parameter given by SCIP to the callback function. */
 template <Type type> struct Call;
@@ -78,6 +88,10 @@ template <> struct Call<Type::Heuristic> {
 };
 using HeuristicCall = Call<Type::Heuristic>;
 
-using DynamicCall = std::variant<Call<Type::Branchrule>, Call<Type::Heuristic>>;
+/** Parameter given by SCIP to the node selector functions. */
+template <> struct Call<Type::Nodesel> { SCIP_NODE** selnode; };
+using NodeselCall = Call<Type::Nodesel>;
+
+using DynamicCall = std::variant<Call<Type::Branchrule>, Call<Type::Heuristic>, Call<Type::Nodesel>>;
 
 }  // namespace ecole::scip::callback
