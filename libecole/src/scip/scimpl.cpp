@@ -267,9 +267,8 @@ public:
 	 */
 	auto scip_select(SCIP* scip, SCIP_NODESEL* /* nodesel */, SCIP_NODE** selnode) -> SCIP_RETCODE override {
 		auto retcode = SCIP_OKAY;
-		SCIP_RESULT result(SCIP_DIDNOTRUN);
+		auto result = SCIP_DIDNOTRUN;
 		std::tie(retcode, result) = handle_executor(scip, m_weak_executor, callback::NodeselCall{selnode});
-		assert(result == SCIP_SUCCESS);
 		return retcode;
 	}
 
@@ -289,17 +288,18 @@ public:
 	 *  - value = 0: both nodes are equally good
 	 *  - value > 0: node2 comes after (is worse than) node2
 	 */
+	// https://github.com/scipopt/PySCIPOpt/blob/master/tests/test_nodesel.py
 	auto scip_comp(SCIP* scip, SCIP_NODESEL* /* nodesel */, SCIP_NODE* node1, SCIP_NODE* node2) -> int override {
-		SCIP_Real lowerbound1 = SCIPnodeGetLowerbound(node1);
-		SCIP_Real lowerbound2 = SCIPnodeGetLowerbound(node2);
+		// SCIP_Real lowerbound1 = SCIPnodeGetLowerbound(node1);
+		// SCIP_Real lowerbound2 = SCIPnodeGetLowerbound(node2);
 
-		if (SCIPisLT(scip, lowerbound1, lowerbound2)) {
-			return -1;
-		}
-		if (SCIPisGT(scip, lowerbound1, lowerbound2)) {
-			return 1;
-		}
-		return 0;
+		// if (SCIPisLT(scip, lowerbound1, lowerbound2)) {
+		// 	return -1;
+		// }
+		// if (SCIPisGT(scip, lowerbound1, lowerbound2)) {
+		// 	return 1;
+		// }
+		return 0;  // both nodes are equally good
 	}
 
 private:
@@ -340,7 +340,7 @@ std::unique_ptr<SCIP, ScipDeleter> create_scip() {
 
 }  // namespace
 
-: m_scip{create_scip()} = default;
+Scimpl::Scimpl() : m_scip{create_scip()} {}
 
 Scimpl::Scimpl(Scimpl&&) noexcept = default;
 

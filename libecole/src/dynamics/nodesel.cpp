@@ -10,72 +10,89 @@
 
 namespace ecole::dynamics {
 
-namespace {
-
-auto action_set(scip::Model const& model) -> std::optional<xt::xtensor<std::size_t, 1>> {
+auto NodeselDynamics::action_set(scip::Model const& model) -> NodeselDynamics::ActionSet {
 	if (model.stage() != SCIP_STAGE_SOLVING) {
 		return {};
 	}
 
-	auto const branch_cands = pseudo ? model.pseudo_branch_cands() : model.lp_branch_cands();
-	auto branch_cols = xt::xtensor<std::size_t, 1>::from_shape({branch_cands.size()});
-	auto const var_to_idx = [](auto const var) { return SCIPvarGetProbindex(var); };
-	std::transform(branch_cands.begin(), branch_cands.end(), branch_cols.begin(), var_to_idx);
+	auto* const scip_ptr = const_cast<SCIP*>(model.get_scip_ptr());
+	SCIP_NODE **leaves, **children, **siblings;
+	int n_leaves, n_siblings, n_children;
 
-	assert(branch_cols.size() > 0);
-	return branch_cols;
+	/* collect leaves, children and siblings data */
+	scip::call(SCIPgetOpenNodesData, scip_ptr, &leaves, &children, &siblings, &n_leaves, &n_children, &n_siblings);
+
+	nonstd::span<SCIP_NODE*> s_leaves = {leaves, static_cast<std::size_t>(n_leaves)};
+	auto xt_leaves = xt::xtensor<std::size_t, 1>::from_shape({static_cast<unsigned long>(n_leaves)});
+	std::transform(s_leaves.begin(), s_leaves.end(), xt_leaves.begin(), SCIPnodeGetNumber);
+
+	nonstd::span<SCIP_NODE*> s_children = {children, static_cast<std::size_t>(n_children)};
+	auto xt_children = xt::xtensor<std::size_t, 1>::from_shape({static_cast<unsigned long>(n_children)});
+	std::transform(s_children.begin(), s_children.end(), xt_children.begin(), SCIPnodeGetNumber);
+
+	nonstd::span<SCIP_NODE*> s_siblings = {siblings, static_cast<std::size_t>(n_siblings)};
+	auto xt_siblings = xt::xtensor<std::size_t, 1>::from_shape({static_cast<unsigned long>(n_siblings)});
+	std::transform(s_siblings.begin(), s_siblings.end(), xt_siblings.begin(), SCIPnodeGetNumber);
+
+	return {{xt_leaves, xt_children, xt_siblings}};
 }
 
-/** Iterative solving until next LP branchrule call and return the action_set. */
-template <typename FCall>
-auto keep_solving_until_next_focus(scip::Model& model, FCall& fcall)
-	-> std::tuple<bool, NodeselDynamics::ActionSet> {
-	using Call = scip::callback::NodeselCall;
-	// While solving is not finished.
-	while (fcall.has_value()) {
-		// LP branchrule found, we give control back to the agent.
-		// Assuming Branchrules are the only reverse callbacks.
-		if (std::get<Call>(fcall.value()).where == Call::Where::LP) {
-			return {false, action_set(model)};
-		}
+auto NodeselDynamics::reset_dynamics(scip::Model& model) -> std::tuple<bool, ActionSet> {
+	// fire up the scip_solve in a concurrent coro
+	auto fcall = model.solve_iter(scip::callback::NodeselConstructor{});
+	if (fcall.has_value()) {
+		// we just got back from the the scip's coro thread
+		this->selnode = std::get<scip::callback::NodeselCall>(fcall.value()).selnode;
+		*(this->selnode) = nullptr;
 
-		// Otherwise keep looping, ignoring the callback.
-		fcall = model.solve_iter_continue(SCIP_DIDNOTRUN);
+		// return control to python
+		if (SCIPgetNNodesLeft(model.get_scip_ptr()) > 0) return {false, action_set(model)};
 	}
-	// Solving is finished.
+
+	// Solving is finished
 	return {true, {}};
 }
 
-}  // namespace
-
-
-auto NodeselDynamics::reset_dynamics(scip::Model& model) const -> std::tuple<bool, ActionSet> {
-	auto fcall = model.solve_iter(scip::callback::NodeselConstructor{});
-	return keep_solving_until_next_focus(model, fcall);
-}
-
-auto NodeselDynamics::step_dynamics(scip::Model& model, Defaultable<std::size_t> maybe_var_idx) const
+auto NodeselDynamics::step_dynamics(scip::Model& model, Defaultable<std::size_t> maybe_node_idx)
 	-> std::tuple<bool, ActionSet> {
-	// Default fallback to SCIP default branching
 	auto scip_result = SCIP_DIDNOTRUN;
+	if (std::holds_alternative<std::size_t>(maybe_node_idx)) {
+		auto const node_idx = std::get<std::size_t>(maybe_node_idx);
+		auto* const scip_ptr = const_cast<SCIP*>(model.get_scip_ptr());
 
-	if (std::holds_alternative<std::size_t>(maybe_var_idx)) {
-		auto const var_idx = std::get<std::size_t>(maybe_var_idx);
-		auto const vars = model.variables();
+		// build a map of node number to node
+		SCIP_NODE **leaves, **children, **siblings;
+		int n_leaves, n_siblings, n_children;
+		scip::call(SCIPgetOpenNodesData, scip_ptr, &leaves, &children, &siblings, &n_leaves, &n_children, &n_siblings);
 
-		// Error handling
-		if (var_idx >= vars.size()) {
-			throw std::invalid_argument{
-				fmt::format("Branching candidate index {} larger than the number of variables ({}).", var_idx, vars.size())};
+		std::map<SCIP_Longint, SCIP_NODE*> num_to_node = {};
+		for (int n = 0; n < n_leaves; ++n) {
+			num_to_node[SCIPnodeGetNumber(leaves[n])] = leaves[n];
 		}
-		// Branching
-		scip::call(SCIPbranchVar, model.get_scip_ptr(), vars[var_idx], nullptr, nullptr, nullptr);
-		scip_result = SCIP_BRANCHED;
+		for (int n = 0; n < n_siblings; ++n) {
+			num_to_node[SCIPnodeGetNumber(siblings[n])] = siblings[n];
+		}
+		for (int n = 0; n < n_children; ++n) {
+			num_to_node[SCIPnodeGetNumber(children[n])] = children[n];
+		}
+
+		// node selection
+		*(this->selnode) = num_to_node[static_cast<SCIP_Longint>(node_idx)];
+		scip_result = SCIP_SUCCESS;
 	}
 
-	// Looping until the next LP branchrule rule callback, if it exists.
 	auto fcall = model.solve_iter_continue(scip_result);
-	return keep_solving_until_next_focus(model, fcall, pseudo_candidates);
+
+	// While solving is not finished.
+	if (fcall.has_value()) {
+		this->selnode = std::get<scip::callback::NodeselCall>(fcall.value()).selnode;
+
+		*(this->selnode) = nullptr;
+		if (SCIPgetNNodesLeft(model.get_scip_ptr()) > 0) return {false, action_set(model)};
+	}
+
+	// Solving is finished.
+	return {true, {}};
 }
 
 }  // namespace ecole::dynamics

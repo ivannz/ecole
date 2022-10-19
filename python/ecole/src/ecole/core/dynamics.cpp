@@ -309,7 +309,7 @@ void bind_submodule(pybind11::module_ const& m) {
 			.def_reset_dynamics(R"()")
 			.def_step_dynamics(R"()")
 			.def_set_dynamics_random_state(R"()")
-			.def(py::init<bool>(), py::arg("pseudo_candidates") = false, R"()");
+			.def(py::init<>());
 	}
 }
 

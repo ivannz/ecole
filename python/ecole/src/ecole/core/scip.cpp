@@ -68,6 +68,11 @@ void bind_submodule(py::module_ m) {
 			python::Member{"max_depth", &HeuristicConstructor::max_depth},
 			python::Member{"timing_mask", &HeuristicConstructor::timing_mask});
 
+	python::auto_data_class<NodeselConstructor>(m, "NodeselConstructor")
+		.def_auto_members(
+			python::Member{"priority", &NodeselConstructor::stdpriority},
+			python::Member{"max_depth", &NodeselConstructor::memsavepriority});
+
 	auto branchrule_call = python::auto_data_class<BranchruleCall>(m, "BranchruleCall");
 	py::enum_<BranchruleCall::Where>(branchrule_call, "Where")
 		.value("LP", BranchruleCall::Where::LP)
@@ -81,6 +86,10 @@ void bind_submodule(py::module_ m) {
 		.def_auto_members(
 			python::Member{"heuristic_timing", &HeuristicCall::heuristic_timing},
 			python::Member{"node_infeasible", &HeuristicCall::node_infeasible});
+
+	// auto nodesel_call = python::auto_data_class<NodeselCall>(m, "NodeselCall");
+	// nodesel_call.def_auto_members(
+	// 	python::Member{"selnode", &NodeselCall::selnode});
 }
 
 }  // namespace callback
