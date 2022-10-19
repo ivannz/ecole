@@ -4,6 +4,7 @@
 #include <variant>
 
 #include <scip/type_timing.h>
+#include <scip/type_tree.h>
 
 #include "ecole/utility/unreachable.hpp"
 

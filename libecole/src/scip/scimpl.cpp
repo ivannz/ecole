@@ -46,7 +46,8 @@ auto include_reverse_callback(SCIP* scip, std::weak_ptr<Executor> executor, call
  * This function will pass the current call function arguments to the coroutine and wait for the result.
  */
 template <callback::Type type>
-auto handle_executor(SCIP* scip, std::weak_ptr<Executor>& weak_executor, callback::Call<type> call) noexcept -> std::tuple<SCIP_RETCODE, SCIP_RESULT> {
+auto handle_executor(SCIP* scip, std::weak_ptr<Executor>& weak_executor, callback::Call<type> call) noexcept
+	-> std::tuple<SCIP_RETCODE, SCIP_RESULT> {
 	if (weak_executor.expired()) {
 		return {SCIP_OKAY, SCIP_DIDNOTRUN};
 	}
@@ -73,8 +74,7 @@ public:
 		int priority,
 		int maxdepth,
 		SCIP_Real maxbounddist,
-		std::weak_ptr<Executor> weak_executor
-	) :
+		std::weak_ptr<Executor> weak_executor) :
 		ObjBranchrule{
 			scip,
 			name(callback::Type::Branchrule),
@@ -188,8 +188,7 @@ public:
 		int freqofs,
 		int maxdepth,
 		SCIP_HEURTIMING timingmask,
-		std::weak_ptr<Executor> weak_executor
-	) :
+		std::weak_ptr<Executor> weak_executor) :
 		ObjHeur{
 			scip,
 			name(callback::Type::Heuristic),
@@ -244,8 +243,7 @@ public:
 		SCIP* scip,
 		int stdpriority, /**< priority of the node selector in standard mode */
 		int memsavepriority,
-		std::weak_ptr<Executor> weak_executor
-	) :
+		std::weak_ptr<Executor> weak_executor) :
 		ObjNodesel{
 			scip,
 			name(callback::Type::Nodesel),
@@ -269,7 +267,9 @@ public:
 	 */
 	auto scip_select(SCIP* scip, SCIP_NODESEL* /* nodesel */, SCIP_NODE** selnode) -> SCIP_RETCODE override {
 		auto retcode = SCIP_OKAY;
-		std::tie(retcode, *result) = handle_executor(scip, m_weak_executor, callback::NodeselCall{selnode});
+		SCIP_RESULT result(SCIP_DIDNOTRUN);
+		std::tie(retcode, result) = handle_executor(scip, m_weak_executor, callback::NodeselCall{selnode});
+		assert(result == SCIP_SUCCESS);
 		return retcode;
 	}
 
