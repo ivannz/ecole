@@ -6,6 +6,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl/filesystem.h>
 
+#include "ecole/dynamics/nodesel.hpp"
 #include "ecole/python/auto-class.hpp"
 #include "ecole/scip/callback.hpp"
 #include "ecole/scip/model.hpp"
@@ -87,9 +88,7 @@ void bind_submodule(py::module_ m) {
 			python::Member{"heuristic_timing", &HeuristicCall::heuristic_timing},
 			python::Member{"node_infeasible", &HeuristicCall::node_infeasible});
 
-	// auto nodesel_call = python::auto_data_class<NodeselCall>(m, "NodeselCall");
-	// nodesel_call.def_auto_members(
-	// 	python::Member{"selnode", &NodeselCall::selnode});
+	python::auto_data_class<NodeselCall>(m, "NodeselCall").def(py::init<>());
 }
 
 }  // namespace callback

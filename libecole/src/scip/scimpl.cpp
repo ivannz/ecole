@@ -289,7 +289,8 @@ public:
 	 *  - value > 0: node2 comes after (is worse than) node2
 	 */
 	// https://github.com/scipopt/PySCIPOpt/blob/master/tests/test_nodesel.py
-	auto scip_comp(SCIP* scip, SCIP_NODESEL* /* nodesel */, SCIP_NODE* node1, SCIP_NODE* node2) -> int override {
+	auto scip_comp(SCIP* /* scip */, SCIP_NODESEL* /* nodesel */, SCIP_NODE* /* node1 */, SCIP_NODE* /* node2 */)
+		-> int override {
 		// SCIP_Real lowerbound1 = SCIPnodeGetLowerbound(node1);
 		// SCIP_Real lowerbound2 = SCIPnodeGetLowerbound(node2);
 

@@ -9,41 +9,67 @@
 #include "ecole/scip/utils.hpp"
 
 namespace ecole::dynamics {
+using ActionSet = NodeselDynamics::ActionSet;
 
-auto NodeselDynamics::action_set(scip::Model const& model) -> NodeselDynamics::ActionSet {
+auto NodeselDynamics::action_set(scip::Model const& model) -> ActionSet {
+	*(fcall.selnode) = nullptr;
+	num_to_node.clear();
+
 	if (model.stage() != SCIP_STAGE_SOLVING) {
 		return {};
 	}
 
 	auto* const scip_ptr = const_cast<SCIP*>(model.get_scip_ptr());
-	SCIP_NODE **leaves, **children, **siblings;
+
+	SCIP_NODE **s_leaves, **s_children, **s_siblings;
 	int n_leaves, n_siblings, n_children;
 
 	/* collect leaves, children and siblings data */
-	scip::call(SCIPgetOpenNodesData, scip_ptr, &leaves, &children, &siblings, &n_leaves, &n_children, &n_siblings);
+	scip::call(SCIPgetOpenNodesData, scip_ptr, &s_leaves, &s_children, &s_siblings, &n_leaves, &n_children, &n_siblings);
 
-	nonstd::span<SCIP_NODE*> s_leaves = {leaves, static_cast<std::size_t>(n_leaves)};
-	auto xt_leaves = xt::xtensor<std::size_t, 1>::from_shape({static_cast<unsigned long>(n_leaves)});
-	std::transform(s_leaves.begin(), s_leaves.end(), xt_leaves.begin(), SCIPnodeGetNumber);
+	int j;
+	SCIP_NODE* node;
+	SCIP_Longint nnum;
 
-	nonstd::span<SCIP_NODE*> s_children = {children, static_cast<std::size_t>(n_children)};
-	auto xt_children = xt::xtensor<std::size_t, 1>::from_shape({static_cast<unsigned long>(n_children)});
-	std::transform(s_children.begin(), s_children.end(), xt_children.begin(), SCIPnodeGetNumber);
+	// build a map of node number to node
+	auto xt_leaves = xt::xtensor<SCIP_Longint, 1>::from_shape({static_cast<unsigned long>(n_leaves)});
+	for (j = 0; j < n_leaves; j++) {
+		node = s_leaves[j];
+		nnum = SCIPnodeGetNumber(node);
 
-	nonstd::span<SCIP_NODE*> s_siblings = {siblings, static_cast<std::size_t>(n_siblings)};
-	auto xt_siblings = xt::xtensor<std::size_t, 1>::from_shape({static_cast<unsigned long>(n_siblings)});
-	std::transform(s_siblings.begin(), s_siblings.end(), xt_siblings.begin(), SCIPnodeGetNumber);
+		num_to_node[nnum] = node;
+		xt_leaves[static_cast<unsigned long>(j)] = nnum;
+	}
+
+	auto xt_children = xt::xtensor<SCIP_Longint, 1>::from_shape({static_cast<unsigned long>(n_children)});
+	for (j = 0; j < n_children; j++) {
+		node = s_children[j];
+		nnum = SCIPnodeGetNumber(node);
+
+		num_to_node[nnum] = node;
+		xt_children[static_cast<unsigned long>(j)] = nnum;
+	}
+
+	auto xt_siblings = xt::xtensor<SCIP_Longint, 1>::from_shape({static_cast<unsigned long>(n_siblings)});
+	for (j = 0; j < n_siblings; j++) {
+		node = s_siblings[j];
+		nnum = SCIPnodeGetNumber(node);
+
+		num_to_node[nnum] = node;
+		xt_siblings[static_cast<unsigned long>(j)] = nnum;
+	}
 
 	return {{xt_leaves, xt_children, xt_siblings}};
 }
 
 auto NodeselDynamics::reset_dynamics(scip::Model& model) -> std::tuple<bool, ActionSet> {
 	// fire up the scip_solve in a concurrent coro
-	auto fcall = model.solve_iter(scip::callback::NodeselConstructor{});
-	if (fcall.has_value()) {
+	auto maybe_fcall = model.solve_iter(scip::callback::NodeselConstructor{});
+
+	// return respond(model, maybe_fcall);
+	if (maybe_fcall.has_value()) {
 		// we just got back from the the scip's coro thread
-		this->selnode = std::get<scip::callback::NodeselCall>(fcall.value()).selnode;
-		*(this->selnode) = nullptr;
+		fcall = std::get<scip::callback::NodeselCall>(maybe_fcall.value());
 
 		// return control to python
 		if (SCIPgetNNodesLeft(model.get_scip_ptr()) > 0) return {false, action_set(model)};
@@ -58,40 +84,28 @@ auto NodeselDynamics::step_dynamics(scip::Model& model, Defaultable<std::size_t>
 	auto scip_result = SCIP_DIDNOTRUN;
 	if (std::holds_alternative<std::size_t>(maybe_node_idx)) {
 		auto const node_idx = std::get<std::size_t>(maybe_node_idx);
-		auto* const scip_ptr = const_cast<SCIP*>(model.get_scip_ptr());
+		auto iter = num_to_node.find(static_cast<SCIP_Longint>(node_idx));
 
-		// build a map of node number to node
-		SCIP_NODE **leaves, **children, **siblings;
-		int n_leaves, n_siblings, n_children;
-		scip::call(SCIPgetOpenNodesData, scip_ptr, &leaves, &children, &siblings, &n_leaves, &n_children, &n_siblings);
-
-		std::map<SCIP_Longint, SCIP_NODE*> num_to_node = {};
-		for (int n = 0; n < n_leaves; ++n) {
-			num_to_node[SCIPnodeGetNumber(leaves[n])] = leaves[n];
+		if (iter != num_to_node.end()) {
+			*(fcall.selnode) = iter->second;
+			// num_to_node.clear();
+			scip_result = SCIP_SUCCESS;
 		}
-		for (int n = 0; n < n_siblings; ++n) {
-			num_to_node[SCIPnodeGetNumber(siblings[n])] = siblings[n];
-		}
-		for (int n = 0; n < n_children; ++n) {
-			num_to_node[SCIPnodeGetNumber(children[n])] = children[n];
-		}
-
-		// node selection
-		*(this->selnode) = num_to_node[static_cast<SCIP_Longint>(node_idx)];
-		scip_result = SCIP_SUCCESS;
 	}
 
-	auto fcall = model.solve_iter_continue(scip_result);
+	// resume scip's coro
+	auto maybe_fcall = model.solve_iter_continue(scip_result);
 
-	// While solving is not finished.
-	if (fcall.has_value()) {
-		this->selnode = std::get<scip::callback::NodeselCall>(fcall.value()).selnode;
+	// return respond(model, maybe_fcall);
+	if (maybe_fcall.has_value()) {
+		// we just got back from the the scip's coro thread
+		fcall = std::get<scip::callback::NodeselCall>(maybe_fcall.value());
 
-		*(this->selnode) = nullptr;
+		// return control to python
 		if (SCIPgetNNodesLeft(model.get_scip_ptr()) > 0) return {false, action_set(model)};
 	}
 
-	// Solving is finished.
+	// Solving is finished
 	return {true, {}};
 }
 
