@@ -1,14 +1,13 @@
 #pragma once
 
-#include <memory>
 #include <optional>
 
+#include "ecole/export.hpp"
 #include "ecole/observation/abstract.hpp"
 
 namespace ecole::observation {
 
-class FocusNodeObs {
-public:
+struct ECOLE_EXPORT FocusNodeObs {
 	long long number;
 	int depth;
 	double lowerbound;
@@ -21,10 +20,11 @@ public:
 	double parent_lowerbound;
 };
 
-class FocusNode : public ObservationFunction<std::optional<FocusNodeObs>> {
+class ECOLE_EXPORT FocusNode {
 public:
-	using Observation = std::optional<FocusNodeObs>;
-	Observation extract(scip::Model& model, bool done) override;
+	auto before_reset(scip::Model& /*model*/) -> void {}
+
+	ECOLE_EXPORT auto extract(scip::Model& model, bool done) -> std::optional<FocusNodeObs>;
 };
 
 }  // namespace ecole::observation

@@ -25,7 +25,9 @@ auto get_rhs(SCIP_COL* const col) {
 
 }  // namespace
 
-std::optional<xt::xtensor<double, 1>> Capacity::extract(scip::Model& model, bool /* done */) {
+using CapacityObs = xt::xtensor<double, 1>;
+
+auto Capacity::extract(scip::Model& model, bool /* done */) -> std::optional<CapacityObs> {
 	if (model.stage() != SCIP_STAGE_SOLVING) {
 		return {};
 	}
@@ -33,7 +35,7 @@ std::optional<xt::xtensor<double, 1>> Capacity::extract(scip::Model& model, bool
 
 	/* Store results in tensor */
 	auto const nb_lp_columns = static_cast<std::size_t>(SCIPgetNLPCols(scip));
-	xt::xtensor<double, 1> capacities({nb_lp_columns}, std::nan(""));
+	CapacityObs capacities({nb_lp_columns}, std::nan(""));
 
 	/* Extract knapsack capacity */
 	auto const columns = model.lp_columns();

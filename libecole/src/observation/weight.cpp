@@ -22,7 +22,9 @@ auto get_weight(SCIP_COL* const col) {
 
 }  // namespace
 
-std::optional<xt::xtensor<double, 1>> Weight::extract(scip::Model& model, bool /* done */) {
+using WeightObs = xt::xtensor<double, 1>;
+
+auto Weight::extract(scip::Model& model, bool /* done */) -> std::optional<WeightObs> {
 	if (model.stage() != SCIP_STAGE_SOLVING) {
 		return {};
 	}
@@ -30,7 +32,7 @@ std::optional<xt::xtensor<double, 1>> Weight::extract(scip::Model& model, bool /
 
 	/* Store results in tensor */
 	auto const nb_lp_columns = static_cast<std::size_t>(SCIPgetNLPCols(scip));
-	xt::xtensor<double, 1> weights({nb_lp_columns}, std::nan(""));
+	WeightObs weights({nb_lp_columns}, std::nan(""));
 
 	/* Extract item weight */
 	auto const columns = model.lp_columns();

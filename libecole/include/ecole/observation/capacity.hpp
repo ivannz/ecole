@@ -1,16 +1,20 @@
 #pragma once
 
 #include <optional>
-
 #include <xtensor/xtensor.hpp>
 
+#include "ecole/export.hpp"
 #include "ecole/observation/abstract.hpp"
 
 namespace ecole::observation {
 
-class Capacity : public ObservationFunction<std::optional<xt::xtensor<double, 1>>> {
+using CapacityObs = xt::xtensor<double, 1>;
+
+class ECOLE_EXPORT Capacity {
 public:
-	std::optional<xt::xtensor<double, 1>> extract(scip::Model& model, bool done) override;
+	auto before_reset(scip::Model& /*model*/) -> void {}
+
+	ECOLE_EXPORT auto extract(scip::Model& model, bool done) -> std::optional<CapacityObs>;
 };
 
 }  // namespace ecole::observation
