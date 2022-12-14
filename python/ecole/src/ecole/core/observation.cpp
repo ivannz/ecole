@@ -14,6 +14,11 @@
 #include "ecole/observation/nothing.hpp"
 #include "ecole/observation/pseudocosts.hpp"
 #include "ecole/observation/strong-branching-scores.hpp"
+
+#include "ecole/observation/capacity.hpp"
+#include "ecole/observation/focusnode.hpp"
+#include "ecole/observation/weight.hpp"
+
 #include "ecole/python/auto-class.hpp"
 #include "ecole/scip/model.hpp"
 #include "ecole/utility/sparse-matrix.hpp"
@@ -445,6 +450,54 @@ void bind_submodule(py::module_ const& m) {
 	hutter.def(py::init<>());
 	def_before_reset(hutter, R"(Do nothing.)");
 	def_extract(hutter, "Extract the observation matrix.");
+
+	// Focus node observation
+	py::class_<FocusNodeObs>(m, "FocusNodeObs", R"(
+        Focus node observation.
+    )")  //
+		.def_property_readonly(
+			"number", [](FocusNodeObs & self) -> auto& { return self.number; }, "Add description.")
+		.def_property_readonly(
+			"depth", [](FocusNodeObs & self) -> auto& { return self.depth; }, "Add description.")
+		.def_property_readonly(
+			"lowerbound", [](FocusNodeObs & self) -> auto& { return self.lowerbound; }, "Add description.")
+		.def_property_readonly(
+			"estimate", [](FocusNodeObs & self) -> auto& { return self.estimate; }, "Add description.")
+		.def_property_readonly(
+			"n_added_conss", [](FocusNodeObs & self) -> auto& { return self.n_added_conss; }, "Add description.")
+		.def_property_readonly(
+			"n_vars", [](FocusNodeObs & self) -> auto& { return self.n_vars; }, "Add description.")
+		.def_property_readonly(
+			"nlpcands", [](FocusNodeObs & self) -> auto& { return self.nlpcands; }, "Add description.")
+		.def_property_readonly(
+			"npseudocands", [](FocusNodeObs & self) -> auto& { return self.npseudocands; }, "Add description.")
+		.def_property_readonly(
+			"parent_number", [](FocusNodeObs & self) -> auto& { return self.parent_number; }, "Add description.")
+		.def_property_readonly(
+			"parent_lowerbound", [](FocusNodeObs & self) -> auto& { return self.parent_lowerbound; }, "Add description.");
+
+	auto focus_node = py::class_<FocusNode>(m, "FocusNode", R"(
+        Returns data of the current node (focus node).
+    )");
+	focus_node.def(py::init<>());
+	def_before_reset(focus_node, R"(Do nothing.)");
+	def_extract(focus_node, "Extract a new :py:class:`FocusNodeObs`.");
+
+	// Capacity observation
+	auto capacity = py::class_<Capacity>(m, "Capacity", R"(
+        Returns capacity of knapsacks per variable.
+    )");
+	capacity.def(py::init<>());
+	def_before_reset(capacity, R"(Do nothing.)");
+	def_extract(capacity, "Extract capacity");
+
+	// Weight observation
+	auto weight = py::class_<Weight>(m, "Weight", R"(
+        Returns weight of the item per variable.
+    )");
+	weight.def(py::init<>());
+	def_before_reset(weight, R"(Do nothing.)");
+	def_extract(weight, "Extract weight");
 }
 
 }  // namespace ecole::observation

@@ -34,6 +34,14 @@ Pseudocosts
 ^^^^^^^^^^^
 .. autoclass:: ecole.observation.Pseudocosts
 
+Capacity
+^^^^^^^^^^^
+.. autoclass:: ecole.observation.Capacity
+
+Weight
+^^^^^^^^^^^
+.. autoclass:: ecole.observation.Weight
+
 Khalil et al. 2016
 ^^^^^^^^^^^^^^^^^^
 .. autoclass:: ecole.observation.Khalil2016
@@ -43,3 +51,8 @@ Hutter et al. 2011
 ^^^^^^^^^^^^^^^^^^
 .. autoclass:: ecole.observation.Hutter2011
 .. autoclass:: ecole.observation.Hutter2011Obs
+
+Focus Node
+^^^^^^^^^^^^^^
+.. autoclass:: ecole.observation.FocusNode
+.. autoclass:: ecole.observation.FocusNodeObs

@@ -34,6 +34,9 @@ add_library(
 	src/observation/hutter-2011.cpp
 	src/observation/strong-branching-scores.cpp
 	src/observation/pseudocosts.cpp
+	src/observation/focusnode.cpp
+	src/observation/capacity.cpp
+	src/observation/weight.cpp
 
 	src/dynamics/parts.cpp
 	src/dynamics/branching.cpp
